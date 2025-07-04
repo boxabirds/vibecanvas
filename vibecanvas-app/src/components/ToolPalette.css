@@ -1,0 +1,55 @@
+.tool-palette {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 4px 16px rgba(0, 0, 0, 0.08);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 1000;
+}
+
+.tool-button {
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5a6c7d;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tool-button:hover {
+  background-color: #f3f4f6;
+  color: #2d3748;
+}
+
+.tool-button.active {
+  background-color: #e7efff;
+  color: #4264fb;
+}
+
+.tool-button.active::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background-color: #4264fb;
+  border-radius: 0 2px 2px 0;
+}
+
+.tool-button svg {
+  width: 24px;
+  height: 24px;
+}

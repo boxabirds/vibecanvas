@@ -1,0 +1,30 @@
+.infinite-canvas {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.canvas-content {
+  position: absolute;
+  transform-origin: 0 0;
+  width: 0;
+  height: 0;
+}
+
+.creation-preview {
+  position: absolute;
+  border: 2px dashed #4264fb;
+  background-color: rgba(66, 100, 251, 0.1);
+  pointer-events: none;
+  border-radius: 8px;
+}
+
+.selection-box {
+  position: absolute;
+  border: 1px solid #4264fb;
+  background-color: rgba(66, 100, 251, 0.1);
+  pointer-events: none;
+}

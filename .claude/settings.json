@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/bundler-standard.ts"
+          },
+          {
+            "type": "command", 
+            "command": "./hooks/file-name-consistency.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/file-name-consistency.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/file-name-consistency.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
