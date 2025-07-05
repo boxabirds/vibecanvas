@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Proxy Test</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+        }
+        .header {
+            height: 80px;
+            background: #1a1a2e;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }
+        .header h1 {
+            margin: 0;
+        }
+        .controls {
+            margin-left: auto;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        iframe {
+            width: 100%;
+            height: calc(100vh - 80px);
+            border: none;
+        }
+        .screenshot {
+            width: 100%;
+            height: calc(100vh - 80px);
+            overflow: auto;
+            text-align: center;
+            background: #f0f0f0;
+        }
+        .screenshot img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>PROXY - Simple Test</h1>
+        <div class="controls">
+            <button onclick="loadSimple()">Load HTML</button>
+            <button onclick="loadScreenshot()">Load Screenshot</button>
+            <button onclick="loadDirect()">Load Direct (CORS Error Expected)</button>
+        </div>
+    </div>
+    
+    <iframe id="frame"></iframe>
+    <div id="screenshot" class="screenshot" style="display: none;"></div>
+    
+    <script>
+        const frame = document.getElementById('frame');
+        const screenshotDiv = document.getElementById('screenshot');
+        
+        function loadSimple() {
+            frame.style.display = 'block';
+            screenshotDiv.style.display = 'none';
+            frame.src = '/capture-simple';
+        }
+        
+        function loadScreenshot() {
+            frame.style.display = 'none';
+            screenshotDiv.style.display = 'block';
+            screenshotDiv.innerHTML = '<img src="/screenshot" alt="Sky News Screenshot">';
+        }
+        
+        function loadDirect() {
+            frame.style.display = 'block';
+            screenshotDiv.style.display = 'none';
+            // This will likely fail due to X-Frame-Options
+            frame.src = 'https://news.sky.com/uk';
+        }
+        
+        // Load simple version by default
+        loadSimple();
+    </script>
+</body>
+</html>

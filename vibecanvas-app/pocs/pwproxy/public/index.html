@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playwright Proxy POC</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: monospace;
+    }
+    
+    #banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: #222;
+      border-bottom: 2px solid #444;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 2000;
+    }
+    
+    #urlInput {
+      flex: 1;
+      height: 40px;
+      padding: 0 15px;
+      font-size: 16px;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 5px;
+      font-family: monospace;
+    }
+    
+    #navigateBtn {
+      height: 40px;
+      padding: 0 20px;
+      margin-left: 10px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: monospace;
+    }
+    
+    #navigateBtn:hover {
+      background: #0c0;
+    }
+    
+    #canvas {
+      display: block;
+      cursor: crosshair;
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    
+    #stats {
+      position: fixed;
+      top: 90px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #0f0;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      z-index: 1000;
+    }
+    
+    .stat-line {
+      margin: 2px 0;
+    }
+    
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div id="banner">
+    <input type="text" id="urlInput" placeholder="Enter URL to navigate..." value="https://bbc.co.uk">
+    <button id="navigateBtn">Navigate</button>
+  </div>
+  <div id="loading">Connecting to Playwright...</div>
+  <canvas id="canvas"></canvas>
+  <div id="stats">
+    <div class="stat-line">FPS: <span id="fps">0</span></div>
+    <div class="stat-line">Capture Time: <span id="captureTime">0</span>ms</div>
+    <div class="stat-line">Round Trip: <span id="roundTrip">0</span>ms</div>
+    <div class="stat-line">Render FPS: <span id="renderFps">0</span></div>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const stats = {
+      fps: document.getElementById('fps'),
+      captureTime: document.getElementById('captureTime'),
+      roundTrip: document.getElementById('roundTrip'),
+      renderFps: document.getElementById('renderFps')
+    };
+    
+    let ws;
+    let requestStartTime;
+    let renderFrameCount = 0;
+    let lastRenderTime = Date.now();
+    let renderFps = 0;
+    
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight - 80; // Account for banner
+      
+      // Set actual canvas size accounting for device pixel ratio
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      
+      // Scale canvas back down using CSS
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      
+      // Scale context to match device pixel ratio
+      ctx.scale(dpr, dpr);
+      
+      // Disable image smoothing for crisp pixels
+      ctx.imageSmoothingEnabled = false;
+      ctx.webkitImageSmoothingEnabled = false;
+      ctx.mozImageSmoothingEnabled = false;
+      ctx.msImageSmoothingEnabled = false;
+    }
+    
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      // Update viewport size on window resize
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'init',
+          width: window.innerWidth,
+          height: window.innerHeight - 80
+        }));
+      }
+    });
+    resizeCanvas();
+    
+    function connect() {
+      ws = new WebSocket(`ws://${window.location.host}`);
+      
+      ws.onopen = () => {
+        console.log('Connected to server');
+        document.getElementById('loading').style.display = 'none';
+        requestStartTime = Date.now();
+        ws.send(JSON.stringify({ 
+          type: 'init',
+          width: window.innerWidth,
+          height: window.innerHeight - 80
+        }));
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'screenshot') {
+          const roundTripTime = Date.now() - requestStartTime;
+          
+          const img = new Image();
+          img.onload = () => {
+            // Clear canvas with proper scaling
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            // Disable image smoothing for this draw operation
+            ctx.imageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+            
+            // Draw image at 1:1 scale (canvas and viewport should match)
+            ctx.drawImage(img, 0, 0);
+            
+            // Store scale as 1 for coordinate mapping
+            canvas.dataset.scale = 1;
+            canvas.dataset.offsetX = 0;
+            canvas.dataset.offsetY = 0;
+            
+            // Update stats
+            stats.fps.textContent = data.fps || 0;
+            stats.captureTime.textContent = data.captureTime || 0;
+            stats.roundTrip.textContent = roundTripTime;
+            
+            // Calculate render FPS
+            renderFrameCount++;
+            const currentTime = Date.now();
+            const timeDiff = currentTime - lastRenderTime;
+            
+            if (timeDiff >= 1000) {
+              renderFps = Math.round((renderFrameCount * 1000) / timeDiff);
+              renderFrameCount = 0;
+              lastRenderTime = currentTime;
+              stats.renderFps.textContent = renderFps;
+            }
+          };
+          img.src = `data:image/png;base64,${data.data}`;
+        } else if (data.type === 'error') {
+          console.error('Server error:', data.message);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+      
+      ws.onclose = () => {
+        console.log('Disconnected from server');
+        document.getElementById('loading').textContent = 'Disconnected. Refresh to reconnect.';
+        document.getElementById('loading').style.display = 'block';
+      };
+    }
+    
+    function getPlaywrightCoords(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = parseFloat(canvas.dataset.scale) || 1;
+      const offsetX = parseFloat(canvas.dataset.offsetX) || 0;
+      const offsetY = parseFloat(canvas.dataset.offsetY) || 0;
+      
+      const canvasX = event.clientX - rect.left;
+      const canvasY = event.clientY - rect.top;
+      
+      const x = Math.round((canvasX - offsetX) / scale);
+      const y = Math.round((canvasY - offsetY) / scale);
+      
+      return { x, y };
+    }
+    
+    let isMouseDown = false;
+    
+    canvas.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      const coords = getPlaywrightCoords(event);
+      isMouseDown = true;
+      requestStartTime = Date.now();
+      ws.send(JSON.stringify({ type: 'mousedown', ...coords }));
+    });
+    
+    canvas.addEventListener('mouseup', (event) => {
+      event.preventDefault();
+      const coords = getPlaywrightCoords(event);
+      isMouseDown = false;
+      requestStartTime = Date.now();
+      ws.send(JSON.stringify({ type: 'mouseup', ...coords }));
+    });
+    
+    canvas.addEventListener('mousemove', (event) => {
+      if (isMouseDown) {
+        const coords = getPlaywrightCoords(event);
+        ws.send(JSON.stringify({ type: 'mousemove', ...coords }));
+      }
+    });
+    
+    canvas.addEventListener('click', (event) => {
+      event.preventDefault();
+      const coords = getPlaywrightCoords(event);
+      requestStartTime = Date.now();
+      ws.send(JSON.stringify({ type: 'click', ...coords }));
+    });
+    
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const coords = getPlaywrightCoords(event);
+      requestStartTime = Date.now();
+      ws.send(JSON.stringify({ 
+        type: 'scroll', 
+        ...coords, 
+        deltaY: event.deltaY 
+      }));
+    });
+    
+    // Keyboard event handling
+    document.addEventListener('keydown', (event) => {
+      // Don't capture keyboard events when the URL input is focused
+      if (document.activeElement === urlInput) {
+        return;
+      }
+      
+      // Prevent default for common browser shortcuts
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+      }
+      
+      // Only send the keypress for actual character input
+      if (event.key.length === 1 || ['Enter', 'Backspace', 'Delete', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+        requestStartTime = Date.now();
+        ws.send(JSON.stringify({ 
+          type: 'keypress', 
+          key: event.key 
+        }));
+      }
+    });
+    
+    // Prevent context menu
+    canvas.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+    });
+    
+    // Navigation handling
+    const urlInput = document.getElementById('urlInput');
+    const navigateBtn = document.getElementById('navigateBtn');
+    
+    navigateBtn.addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      if (url) {
+        requestStartTime = Date.now();
+        ws.send(JSON.stringify({ type: 'navigate', url }));
+      }
+    });
+    
+    urlInput.addEventListener('keypress', (event) => {
+      if (event.key === 'Enter') {
+        event.stopPropagation(); // Prevent sending to canvas
+        navigateBtn.click();
+      }
+    });
+    
+    connect();
+  </script>
+</body>
+</html>
